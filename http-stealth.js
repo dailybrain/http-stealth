@@ -169,6 +169,9 @@ const runBrowse = async(argv) => {
     // build options args
     const launchOptionsArgs = []
 
+    launchOptionsArgs.push(`--incognito`)
+    launchOptionsArgs.push(`--user-agent="${randomDevice.userAgent}"`)
+
     // proxy settings
     if (!disableTor) {
         launchOptionsArgs.push(`--proxy-server=${proxyOptions}`)
@@ -180,6 +183,7 @@ const runBrowse = async(argv) => {
     // build options
     const launchOptions = {
         headless: headless,
+        defaultViewport: randomDevice.viewport,
         args: launchOptionsArgs
     }
     log(`${chalk.green('✓')} use options`, launchOptions)
@@ -203,7 +207,7 @@ const runBrowse = async(argv) => {
     const pageTitle = await page.title()
     log(`${chalk.green('✓')} title '${pageTitle}'`)
 
-    // take screenshot
+    // take a screenshot
     if (!!screenshotFile) {
         await page.screenshot({ path: screenshotFile, fullPage: true })
         log(`${chalk.green('✓')} screenshot saved at ${screenshotFile}`)
