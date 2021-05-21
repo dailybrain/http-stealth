@@ -215,11 +215,11 @@ const runBrowse = async(argv) => {
 
     // build options
     const launchOptions = {
-        headless: headless,
-        defaultViewport: randomDevice.viewport,
-        args: launchOptionsArgs
-    }
-    log(`${chalk.green('✓')} use options`, launchOptions)
+            headless: headless,
+            defaultViewport: randomDevice.viewport,
+            args: launchOptionsArgs
+        }
+        //log(`${chalk.green('✓')} use options`, launchOptions)
 
     // launch browser
     const browser = await puppeteer.launch(launchOptions)
