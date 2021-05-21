@@ -158,6 +158,8 @@ const runBrowse = async(argv) => {
     const url = argv.url
     const headless = argv.headless
     const disableTor = argv.disableTor
+    const minStay = argv.minStay * 1000
+    const maxStay = argv.maxStay * 1000
     const screenshotFile = argv.screenshotFile
 
     // pick a random device
@@ -182,11 +184,11 @@ const runBrowse = async(argv) => {
 
     // build options
     const launchOptions = {
-        headless: headless,
-        defaultViewport: randomDevice.viewport,
-        args: launchOptionsArgs
-    }
-    log(`${chalk.green('✓')} use options`, launchOptions)
+            headless: headless,
+            defaultViewport: randomDevice.viewport,
+            args: launchOptionsArgs
+        }
+        //log(`${chalk.green('✓')} use options`, launchOptions)
 
     // launch browser
     const browser = await puppeteer.launch(launchOptions)
@@ -206,6 +208,11 @@ const runBrowse = async(argv) => {
     // get title
     const pageTitle = await page.title()
     log(`${chalk.green('✓')} title '${pageTitle}'`)
+
+    // stay on page
+    const duration = (Math.floor(Math.random() * maxStay) + minStay)
+    log(`${chalk.green('✓')} stay on page ${duration}ms`)
+    await delay(duration)
 
     // take a screenshot
     if (!!screenshotFile) {
@@ -248,6 +255,18 @@ yargs(hideBin(process.argv))
                 .option('screenshot-file', {
                     describe: 'Screenshot file',
                     type: 'string',
+                    required: false
+                })
+                .option('min-stay', {
+                    describe: 'Minimum stay on page (in s)',
+                    type: 'number',
+                    default: 3,
+                    required: false
+                })
+                .option('max-stay', {
+                    describe: 'Maximum stay on page (in s)',
+                    type: 'number',
+                    default: 10,
                     required: false
                 })
         },
