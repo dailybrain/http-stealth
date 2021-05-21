@@ -51,6 +51,34 @@ const netcat = async(msg) => {
     })
 }
 
+const autoScroll = async(page) => {
+
+    await page.evaluate(async() => {
+
+        await new Promise((resolve, reject) => {
+
+            var totalHeight = 0
+            const scrollHeight = document.body.scrollHeight
+
+            const timer = setInterval(() => {
+
+                var distance = (Math.floor(Math.random() * window.innerHeight) + 100)
+
+                window.scrollBy(0, distance)
+                totalHeight += distance
+
+                if (totalHeight >= scrollHeight) {
+                    clearInterval(timer)
+                    resolve()
+                }
+
+            }, 1000)
+        })
+
+    })
+
+}
+
 //
 // run new-tor-ip
 //
@@ -174,6 +202,9 @@ const runBrowse = async(argv) => {
     launchOptionsArgs.push(`--incognito`)
     launchOptionsArgs.push(`--user-agent="${randomDevice.userAgent}"`)
 
+    // set window size
+    launchOptionsArgs.push(`--window-size=${randomDevice.viewport.width},${randomDevice.viewport.height}`)
+
     // proxy settings
     if (!disableTor) {
         launchOptionsArgs.push(`--proxy-server=${proxyOptions}`)
@@ -184,11 +215,11 @@ const runBrowse = async(argv) => {
 
     // build options
     const launchOptions = {
-            headless: headless,
-            defaultViewport: randomDevice.viewport,
-            args: launchOptionsArgs
-        }
-        //log(`${chalk.green('✓')} use options`, launchOptions)
+        headless: headless,
+        defaultViewport: randomDevice.viewport,
+        args: launchOptionsArgs
+    }
+    log(`${chalk.green('✓')} use options`, launchOptions)
 
     // launch browser
     const browser = await puppeteer.launch(launchOptions)
@@ -210,7 +241,7 @@ const runBrowse = async(argv) => {
     log(`${chalk.green('✓')} title '${pageTitle}'`)
 
     // stay on page
-    const duration = (Math.floor(Math.random() * maxStay) + minStay)
+    const duration = Math.floor(Math.random() * maxStay) + minStay
     log(`${chalk.green('✓')} stay on page ${duration}ms`)
     await delay(duration)
 
