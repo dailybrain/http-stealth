@@ -17,6 +17,8 @@ const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin())
 
+const fs = require('fs')
+
 const log = console.log
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -73,9 +75,10 @@ const autoScroll = async(page) => {
 //
 const runNewTorIp = async(argv) => {
 
-    const torProxyHost = argv.torProxyHost
-    const torProxyPort = argv.torProxyPort
-    const torControlPort = argv.torControlPort
+    const
+        torProxyHost = argv.torProxyHost,
+        torProxyPort = argv.torProxyPort,
+        torControlPort = argv.torControlPort
 
     // check tor port
     await tcpPortUsed
@@ -264,6 +267,95 @@ const runBrowse = async(argv) => {
 
 }
 
+//
+// run browse
+//
+const runLoop = async(argv) => {
+
+    //console.log(argv)
+
+    const
+        url = argv.url,
+        proxyList = argv.proxyList,
+        torProxyHost = argv.torProxyHost,
+        torProxyPort = argv.torProxyPort,
+        torControlPort = argv.torControlPort
+
+    let proxies = []
+
+    // dump proxy info
+    if (proxyList) {
+        log(`${chalk.green('✓')} will use proxy list @ ${proxyList}`)
+    } else {
+        log(`${chalk.green('✓')} will use tor at ${torProxyHost}:${torProxyPort}`)
+    }
+
+    // load proxies
+    if (proxyList) {
+
+        proxies = fs.readFileSync(proxyList).toString().split('\n').filter(e => !!e)
+        log(`${chalk.green('✓')} loaded ${proxies.length} proxies`)
+
+    }
+
+    let
+        viewCount = 0,
+        errorCount = 0
+
+    let proxyUrl = ``
+    let useProxyInListAtIndex = 0
+
+    // loop
+    while (true) {
+
+        // use proxy list
+        if (proxyList) {
+
+            // pick random proxy
+            useProxyInListAtIndex = (useProxyInListAtIndex + 1 > proxies.length) ? 0 : useProxyInListAtIndex + 1
+            proxyUrl = proxies[useProxyInListAtIndex]
+            log(`${chalk.green('✓')} use proxy ${proxyUrl}`)
+
+        } else {
+
+            // new tor ip
+            await runNewTorIp({
+                torProxyHost,
+                torProxyPort,
+                torControlPort
+            })
+
+            proxyUrl = `${torProxyHost}:${torProxyPort}`
+
+        }
+
+        // run browse
+        await runBrowse({
+                url: url,
+                headless: true,
+                proxyUrl: proxyUrl,
+                minStay: 3,
+                maxStay: 10
+            })
+            .then(() => {
+                viewCount++
+            })
+            .catch((reason) => {
+                errorCount++
+                log(`${chalk.red('✗')} error during browse, ${reason}`)
+            })
+
+
+        // dump stats
+        const totalCount = proxyList ? proxies.length : (viewCount + errorCount)
+
+        log(`${chalk.yellow('→')} stats [ ${chalk.bold.green(viewCount)} / ${chalk.bold.red(errorCount)} / ${chalk.bold(totalCount)} ]`)
+
+    }
+
+}
+
+
 yargs(hideBin(process.argv))
     .strictCommands()
     .strictOptions()
@@ -339,6 +431,39 @@ yargs(hideBin(process.argv))
                 })
         },
         runBrowse
+    )
+    .command('loop <url>', 'Browse continuously',
+        (yargs) => {
+            yargs
+                .positional('url', {
+                    describe: 'Webpage to visit',
+                    type: 'string'
+                })
+                .option('proxy-list', {
+                    description: 'Proxy file list',
+                    required: false,
+                    type: 'string'
+                })
+                .option('tor-proxy-host', {
+                    description: 'Tor Proxy Host',
+                    required: false,
+                    default: '127.0.0.1',
+                    type: 'string'
+                })
+                .option('tor-proxy-port', {
+                    description: 'Tor Proxy Port',
+                    required: false,
+                    default: 9050,
+                    type: 'number'
+                })
+                .option('tor-control-port', {
+                    description: 'Tor Control Port',
+                    required: false,
+                    default: 9051,
+                    type: 'number'
+                })
+        },
+        runLoop
     )
     .demandCommand(1, 'Missing command')
     .options('verbose', {
