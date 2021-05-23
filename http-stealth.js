@@ -274,6 +274,8 @@ const runLoop = async(argv) => {
 
     //console.log(argv)
 
+    process.setMaxListeners(0)
+
     const
         url = argv.url,
         proxyList = argv.proxyList,
@@ -308,17 +310,15 @@ const runLoop = async(argv) => {
     // loop
     while (true) {
 
-        // use proxy list
         if (proxyList) {
 
-            // pick random proxy
+            // pick a random proxy
             useProxyInListAtIndex = (useProxyInListAtIndex + 1 > proxies.length) ? 0 : useProxyInListAtIndex + 1
             proxyUrl = proxies[useProxyInListAtIndex]
-            log(`${chalk.green('✓')} use proxy ${proxyUrl}`)
 
         } else {
 
-            // new tor ip
+            // ask new tor ip
             await runNewTorIp({
                 torProxyHost,
                 torProxyPort,
@@ -328,6 +328,9 @@ const runLoop = async(argv) => {
             proxyUrl = `${torProxyHost}:${torProxyPort}`
 
         }
+
+        // dump proxy settings
+        log(`${chalk.green('✓')} use proxy ${proxyUrl}`)
 
         // run browse
         await runBrowse({
@@ -345,10 +348,10 @@ const runLoop = async(argv) => {
                 log(`${chalk.red('✗')} error during browse, ${reason}`)
             })
 
-
-        // dump stats
+        // compute total
         const totalCount = proxyList ? proxies.length : (viewCount + errorCount)
 
+        // dump stats
         log(`${chalk.yellow('→')} stats [ ${chalk.bold.green(viewCount)} / ${chalk.bold.red(errorCount)} / ${chalk.bold(totalCount)} ]`)
 
     }
