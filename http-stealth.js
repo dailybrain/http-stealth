@@ -17,26 +17,15 @@ const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin())
 
-// setup proxy
-const
-    proxyHost = '127.0.0.1',
-    proxyPort = '9050',
-    proxyOptions = `socks5://${proxyHost}:${proxyPort}`
-
-// setup axios with proxy
-const httpsAgent = new SocksProxyAgent(proxyOptions)
-const httpAgent = httpsAgent
-const axiosWithTor = axios.create({ httpsAgent, httpAgent })
-
 const log = console.log
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const netcat = async(msg) => {
+const netcat = async(port, host, msg) => {
     return new Promise((resolve, reject) => {
         const client = new net.Socket()
 
-        client.connect(9051, '127.0.0.1', () => {
+        client.connect(port, host, () => {
             client.write(msg)
         })
 
@@ -84,9 +73,13 @@ const autoScroll = async(page) => {
 //
 const runNewTorIp = async(argv) => {
 
+    const torProxyHost = argv.torProxyHost
+    const torProxyPort = argv.torProxyPort
+    const torControlPort = argv.torControlPort
+
     // check tor port
     await tcpPortUsed
-        .check(9050, '127.0.0.1')
+        .check(torProxyPort, torProxyHost)
         .then(
             (inUse) => {
                 if (inUse) {
@@ -103,7 +96,7 @@ const runNewTorIp = async(argv) => {
 
     // check tor control port
     await tcpPortUsed
-        .check(9051, '127.0.0.1')
+        .check(torControlPort, torProxyHost)
         .then(
             (inUse) => {
                 if (inUse) {
@@ -121,8 +114,15 @@ const runNewTorIp = async(argv) => {
     // renew tor ip
     log(`↪ change tor ip`)
 
+    // setup axios with proxy
+    const
+        proxyOptions = `socks5://${torProxyHost}:${torProxyPort}`,
+        httpsAgent = new SocksProxyAgent(proxyOptions),
+        httpAgent = httpsAgent,
+        axiosWithProxy = axios.create({ httpsAgent, httpAgent })
+
     // check current ip
-    const currentTorIp = await axiosWithTor
+    const currentTorIp = await axiosWithProxy
         .get('http://checkip.amazonaws.com')
         .then(
             (res) => `${res.data}`.trim(),
@@ -141,7 +141,7 @@ const runNewTorIp = async(argv) => {
     while (newTorIp == currentTorIp) {
 
         // sent tor newnym cmd
-        await netcat(`authenticate '""'\nsignal newnym\nquit\n`)
+        await netcat(torControlPort, torProxyHost, `authenticate '""'\nsignal newnym\nquit\n`)
             .then(
                 (data) => data,
                 (err) => {
@@ -151,7 +151,7 @@ const runNewTorIp = async(argv) => {
             )
 
         // check current ip
-        newTorIp = await axiosWithTor
+        newTorIp = await axiosWithProxy
             .get('http://checkip.amazonaws.com')
             .then(
                 (res) => `${res.data}`.trim(),
@@ -181,14 +181,14 @@ const runNewTorIp = async(argv) => {
 //
 const runBrowse = async(argv) => {
 
-    //log('running browse', argv)
-
-    const url = argv.url
-    const headless = argv.headless
-    const disableTor = argv.disableTor
-    const minStay = argv.minStay * 1000
-    const maxStay = argv.maxStay * 1000
-    const screenshotFile = argv.screenshotFile
+    const
+        url = argv.url,
+        headless = argv.headless,
+        minStay = argv.minStay * 1000,
+        maxStay = argv.maxStay * 1000,
+        proxyHost = argv.proxyHost,
+        proxyPort = argv.proxyPort,
+        screenshotFile = argv.screenshotFile
 
     // pick a random device
     const randomDeviceIdx = Math.floor(Math.random() * Object.keys(puppeteerCode.devices).length)
@@ -206,7 +206,8 @@ const runBrowse = async(argv) => {
     launchOptionsArgs.push(`--window-size=${randomDevice.viewport.width},${randomDevice.viewport.height}`)
 
     // proxy settings
-    if (!disableTor) {
+    if (!!proxyHost && !!proxyPort) {
+        const proxyOptions = `socks5://${proxyHost}:${proxyPort}`
         launchOptionsArgs.push(`--proxy-server=${proxyOptions}`)
     } else {
         launchOptionsArgs.push(`--proxy-server='direct://'`)
@@ -262,7 +263,27 @@ yargs(hideBin(process.argv))
     .strictOptions()
     .usage('Usage: $0 <command>')
     .command('new-tor-ip', 'Get a new tor ip',
-        () => {},
+        (yargs) => {
+            yargs
+                .option('tor-proxy-host', {
+                    description: 'Tor Proxy Host',
+                    required: false,
+                    default: '127.0.0.1',
+                    type: 'string'
+                })
+                .option('tor-proxy-port', {
+                    description: 'Tor Proxy Port',
+                    required: false,
+                    default: 9050,
+                    type: 'number'
+                })
+                .option('tor-control-port', {
+                    description: 'Tor Control Port',
+                    required: false,
+                    default: 9051,
+                    type: 'number'
+                })
+        },
         runNewTorIp
     )
     .command('browse <url>', 'Browse the given url',
@@ -278,10 +299,15 @@ yargs(hideBin(process.argv))
                     default: true,
                     type: 'boolean'
                 })
-                .option('disable-tor', {
-                    description: 'Disable Tor',
+                .option('proxy-host', {
+                    description: 'Proxy Host',
                     required: false,
-                    type: 'boolean'
+                    type: 'string'
+                })
+                .option('proxy-port', {
+                    description: 'Tor Proxy Port',
+                    required: false,
+                    type: 'number'
                 })
                 .option('screenshot-file', {
                     describe: 'Screenshot file',
