@@ -181,11 +181,14 @@ const runNewTorIp = async(argv) => {
 //
 const runBrowse = async(argv) => {
 
+    //console.log(argv)
+
     const
         url = argv.url,
         headless = argv.headless,
         minStay = argv.minStay * 1000,
         maxStay = argv.maxStay * 1000,
+        proxyUrl = argv.proxyUrl,
         proxyHost = argv.proxyHost,
         proxyPort = argv.proxyPort,
         screenshotFile = argv.screenshotFile
@@ -206,9 +209,12 @@ const runBrowse = async(argv) => {
     launchOptionsArgs.push(`--window-size=${randomDevice.viewport.width},${randomDevice.viewport.height}`)
 
     // proxy settings
-    if (!!proxyHost && !!proxyPort) {
-        const proxyOptions = `socks5://${proxyHost}:${proxyPort}`
-        launchOptionsArgs.push(`--proxy-server=${proxyOptions}`)
+    if (proxyUrl) {
+        const proxyServer = `socks5://${proxyUrl}`
+        launchOptionsArgs.push(`--proxy-server=${proxyServer}`)
+    } else if (proxyHost && proxyPort) {
+        const proxyServer = `socks5://${proxyHost}:${proxyPort}`
+        launchOptionsArgs.push(`--proxy-server=${proxyServer}`)
     } else {
         launchOptionsArgs.push(`--proxy-server='direct://'`)
         launchOptionsArgs.push(`--proxy-bypass-list=*`)
@@ -247,7 +253,7 @@ const runBrowse = async(argv) => {
     await delay(duration)
 
     // take a screenshot
-    if (!!screenshotFile) {
+    if (screenshotFile) {
         await page.screenshot({ path: screenshotFile, fullPage: true })
         log(`${chalk.green('✓')} screenshot saved at ${screenshotFile}`)
     }
@@ -298,6 +304,11 @@ yargs(hideBin(process.argv))
                     required: false,
                     default: true,
                     type: 'boolean'
+                })
+                .option('proxy-url', {
+                    description: 'Proxy URL',
+                    required: false,
+                    type: 'string'
                 })
                 .option('proxy-host', {
                     description: 'Proxy Host',
